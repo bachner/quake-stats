@@ -1,8 +1,9 @@
 'use strict';
 
 angular.module('quakeStatsApp')
-    .controller('KillsCtrl', ['$scope', 'gamesLog', 'KillsService',
-		function ($scope, gamesLog, KillsService) {
+    .controller('KillsCtrl', ['$scope', '$routeParams', 'gamesLog', 'KillsService',
+		function ($scope, $routeParams, gamesLog, KillsService) {
+        $scope.gameId = $routeParams.gameId;
 		$scope.killStats = {};
 
 		if (gamesLog.success === false) {
@@ -10,8 +11,9 @@ angular.module('quakeStatsApp')
 			return;
 		}
 
-		$scope.killsStats = KillsService.getKillsStats(gamesLog.result);
+		$scope.killsStats = KillsService.getKillsStats(gamesLog.result, $scope.gameId);
 		$scope.players = $scope.killsStats.players;
+		$scope.topQScorer = $scope.killsStats.topQScorer;
 
 		var killByVictimFilter = function(element) {
 			return element.victimName === this.victimName;
@@ -30,14 +32,26 @@ angular.module('quakeStatsApp')
 		$scope.getTotalDeaths = function(victimName) {
 			return $scope.killsStats.players[victimName].deaths.length;
 		};
-
-		$scope.filterPropArrayLength = function(items, prop) {
+		
+		$scope.objectToArray = function(items) {
 		    var result = [];
 		    angular.forEach(items, function(value) {
-		        if (value[prop].length > 0) {
-		            result.push(value);
-		        }
+		        result.push(value);
 		    });
 		    return result;
 		};
+
+        $scope.onTableHover = function (row, col) {
+            $scope.hoveredColumn = col;
+            $scope.hoveredRow = row;
+        };
+
+        $scope.onLeaveTable = function () {
+            $scope.hoveredColumn = null;
+            $scope.hoveredRow = null;
+        };
+
+        $scope.playersSortedByKills = _.sortBy($scope.players, function (player) {
+            return - player.kills.length;
+        });
 	}]);

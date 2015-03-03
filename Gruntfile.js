@@ -1,6 +1,7 @@
 // Generated on 2013-08-27 using generator-angular 0.4.0
 'use strict';
 var path = require('path');
+var modRewrite = require('connect-modrewrite');
 var LIVERELOAD_PORT = 35729;
 var lrSnippet = require('connect-livereload')({ port: LIVERELOAD_PORT });
 var proxySnippet = require('grunt-connect-proxy/lib/utils').proxyRequest;
@@ -86,6 +87,9 @@ module.exports = function (grunt) {
                 options: {
                     middleware: function (connect) {
                         return [
+                            modRewrite([
+                                '!\\.html|\\.js|\\.css|\\.png$|\\/rest/.*$  /index.html [L]'
+                            ]),
                             lrSnippet,
                             proxySnippet,
                             mountFolder(connect, '.tmp'),
@@ -112,11 +116,21 @@ module.exports = function (grunt) {
                         ];
                     }
                 }
+            },
+            coverage: {
+                options: {
+                    base: 'coverage/',
+                    port: 5555,
+                    keepalive: true
+                }
             }
         },
         open: {
             server: {
                 url: 'http://localhost:<%= connect.options.port %>'
+            },
+            coverage: {
+                path: 'http://localhost:5555'
             }
         },
         clean: {
@@ -325,7 +339,26 @@ module.exports = function (grunt) {
         karma: {
             unit: {
                 configFile: 'karma.conf.js',
+                autoWatch: false,
                 singleRun: true
+            },
+            unitAuto: {
+                configFile: 'karma.conf.js',
+                autoWatch: true,
+                singleRun: false
+            },
+            unitCoverage: {
+                configFile: 'karma.conf.js',
+                autoWatch: false,
+                singleRun: true,
+                reporters: ['progress', 'coverage'],
+                preprocessors: {
+                    'app/scripts/**/*.js': ['coverage']
+                },
+                coverageReporter: {
+                    type : 'html',
+                    dir : 'coverage/'
+                }
             }
         },
         cdnify: {
@@ -358,7 +391,7 @@ module.exports = function (grunt) {
 
     grunt.registerTask('server', function (target) {
         if (target === 'dist') {
-            return grunt.task.run(['build', 'open', 'connect:dist:keepalive']);
+            return grunt.task.run(['build', 'open:server', 'connect:dist:keepalive']);
         }
 
         grunt.task.run([
@@ -368,7 +401,7 @@ module.exports = function (grunt) {
             'autoprefixer',
             'connect:livereload',
             'express',
-            'open',
+            'open:server',
             'watch'
         ]);
     });
@@ -398,7 +431,27 @@ module.exports = function (grunt) {
 
     grunt.registerTask('default', [
         'jshint',
-        'test',
+        'test:unit',
         'build'
+    ]);
+
+    // Single unit tests execution
+    grunt.registerTask('test:unit', [
+        'karma:unit'
+    ]);
+
+    //autotest and watch tests
+    grunt.registerTask('autotest', [
+        'karma:unitAuto'
+    ]);
+
+    //coverage testing
+    grunt.registerTask('test:coverage', [
+        'karma:unitCoverage'
+    ]);
+    grunt.registerTask('coverage', [
+        'karma:unitCoverage',
+        'open:coverage',
+        'connect:coverage'
     ]);
 };

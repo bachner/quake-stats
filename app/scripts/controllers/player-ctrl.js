@@ -5,8 +5,8 @@ angular.module('quakeStatsApp')
         function ($scope, gamesLog, qconsoleLog, KillsService, FlagsService, $routeParams, $filter) {
         var playerID = $routeParams.id,
             me = this;
-        $scope.killStats = {};
         $scope.flagsStats = {};
+        $scope.gameId = $routeParams.gameId;
 
         if (gamesLog.success === false) {
             console.log('Cannot load games.log - you wil not be able to see kills stats');
@@ -18,11 +18,15 @@ angular.module('quakeStatsApp')
             return;
         }
 
-        $scope.killsStats = KillsService.getKillsStats(gamesLog.result);
+        $scope.killsStats = KillsService.getKillsStats(gamesLog.result, $scope.gameId);
         var killStatsPlayer = $scope.killsStats.players[playerID];
         $scope.playerName = killStatsPlayer.name;
         $scope.playerWeaponsStats = KillsService.getPlayerWeaponsStats(killStatsPlayer);
-        $scope.flagsStats = FlagsService.getFlagsStats(qconsoleLog.result);
+        $scope.flagsStats = FlagsService.getFlagsStats(qconsoleLog.result, $scope.gameId);
+
+        $scope.getPlayerCaptureRatio = function() {
+            return FlagsService.getPlayerCaptureRatio(killStatsPlayer);
+        };
 
         this.getWeaponsChartData = function(rawData) {
             var data = {
@@ -126,12 +130,12 @@ angular.module('quakeStatsApp')
                 },
                 {
                     'id': 'kills',
-                    'label': 'Kills',
+                    'label': 'Kills (' + $scope.killsStats.players[playerID].kills.length + ')',
                     'type': 'number'
                 },
                 {
                     'id': 'deaths',
-                    'label': 'Deaths',
+                    'label': 'Deaths (' + $scope.killsStats.players[playerID].deaths.length + ')',
                     'type': 'number'
                 }
             ];
@@ -168,22 +172,22 @@ angular.module('quakeStatsApp')
                 },
                 {
                     'id': 'scores',
-                    'label': 'Scores',
+                    'label': 'Scores (' + FlagsService.getPlayerOverallTotal(playerID, 'scores') + ')',
                     'type': 'number'
                 },
                 {
                     'id': 'fetches',
-                    'label': 'Fetches',
+                    'label': 'Fetches (' + FlagsService.getPlayerOverallTotal(playerID, 'fetches') + ')',
                     'type': 'number'
                 },
                 {
                     'id': 'returns',
-                    'label': 'Returns',
+                    'label': 'Returns (' + FlagsService.getPlayerOverallTotal(playerID, 'returns') + ')',
                     'type': 'number'
                 },
                 {
                     'id': 'carrierFrags',
-                    'label': 'Carrier Frags',
+                    'label': 'Carrier Frags (' + FlagsService.getPlayerOverallTotal(playerID, 'carrierFrags') + ')',
                     'type': 'number'
                 }
             ];
@@ -228,7 +232,8 @@ angular.module('quakeStatsApp')
             'options': {
                 'title': 'Kills by Weapon',
                 'is3D':true,
-                'displayExactValues': true
+                'displayExactValues': true,
+                'height': 500
             },
             'formatters': {}
         };
@@ -244,7 +249,8 @@ angular.module('quakeStatsApp')
             'options': {
                 'title': 'Deaths by Weapon',
                 'is3D':true,
-                'displayExactValues': true
+                'displayExactValues': true,
+                'height': 500
             },
             'formatters': {}
         };
@@ -252,14 +258,14 @@ angular.module('quakeStatsApp')
         $scope.deathsKillsOverMapsChart = {
             'type': 'LineChart',
             'displayed': true,
-            'cssStyle': 'height:300px; width:100%;',
             'data': {
                 'cols': me.getDeathsKillsOverMapsCols(),
                 'rows': me.getDeathsKillsOverMapsRows($scope.killsStats)
             },
             'options': {
                 'title': 'Kills & Deaths across maps',
-                'displayExactValues': true
+                'displayExactValues': true,
+                'height': 200
             },
             'formatters': {}
         };
@@ -267,14 +273,14 @@ angular.module('quakeStatsApp')
         $scope.flagsOverMapsChart = {
             'type': 'ColumnChart',
             'displayed': true,
-            'cssStyle': 'height:300px; width:100%;',
             'data': {
                 'cols': me.getFlagsOverMapsCols(),
                 'rows': me.getFlagsOverMapsRows($scope.flagsStats)
             },
             'options': {
                 'title': 'Flags across maps',
-                'displayExactValues': true
+                'displayExactValues': true,
+                'height': 200
             },
             'formatters': {}
         };

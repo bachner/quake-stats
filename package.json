@@ -1,9 +1,17 @@
 {
   "name": "quake-stats",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mbarzeev/quake-stats.git"
+  },
+  "scripts": {
+    "postinstall": "node node_modules/bower/bin/bower install"
+  },
   "devDependencies": {
     "grunt": "~0.4.1",
+    "bower": "~1.2.6",
     "grunt-contrib-copy": "~0.4.1",
     "grunt-contrib-concat": "~0.3.0",
     "grunt-contrib-coffee": "~0.7.0",
@@ -27,12 +35,27 @@
     "grunt-google-cdn": "~0.2.0",
     "grunt-ngmin": "~0.0.2",
     "time-grunt": "~0.1.0",
-    "express":"latest",
-    "grunt-express": "latest",
-    "grunt-connect-proxy":"latest",
-    "grunt-karma":"latest"
+    "express":"~4.0.0",
+    "grunt-express": "~1.2.1",
+    "morgan": "~1.0.0",
+    "body-parser": "~1.0.2",
+    "grunt-connect-proxy":"~0.1.10",
+    "karma": "~0.12.0",
+    "grunt-shell": "~0.4.0",
+    "grunt-karma":"~0.8.2",
+    "karma-coverage": "~0.1.0",
+    "protractor":"~0.21.0",
+    "connect-modrewrite": "0.5.11",
+    "mongoose": "~3.8.8",
+    "q": "~1.0.1"
   },
   "engines": {
     "node": ">=0.8.0"
-  }
+  },
+  "licenses": [
+    {
+      "type": "MIT",
+      "url": "https://github.com/mbarzeev/quake-stats/blob/master/LICENSE"
+    }
+  ]
 }

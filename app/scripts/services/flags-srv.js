@@ -1,15 +1,17 @@
 'use strict';
 
-angular.module('quakeStatsApp').service('FlagsService', ['Constants', function(Constants) {
-    this.stats = null;
+angular.module('quakeStatsApp').service('FlagsService', ['Constants', '$cacheFactory', function(Constants, $cacheFactory) {
+    var currentStats;
     var me = this;
+    var statsCache = $cacheFactory('flagsStats');
 
-    this.initMap = function(record, startIndex) {
+    this.initMap = function(record, startIndex, index) {
         var map = {};
             
         map.name = me.getMapKey(record);
         map.timeline = [];
-        map.startIndex = startIndex;
+        map.logStartIndex = startIndex;
+        map.index = index;
         map.fetches = {
             '1':0,
             '2':0
@@ -27,9 +29,9 @@ angular.module('quakeStatsApp').service('FlagsService', ['Constants', function(C
             '2':0
         };
         map.players = {};
-        map.topScorer = null;
-        map.topReturner = null;
-        map.topCarrierFragger = null;
+        map.topScorers = null;
+        map.topReturners = null;
+        map.topCarrierFraggers = null;
         map.endReason = null;
         return map;
     };
@@ -49,6 +51,7 @@ angular.module('quakeStatsApp').service('FlagsService', ['Constants', function(C
                 map.fetches[Constants.RED] += 1;
             }
             map.players[playerName].fetches += 1;
+            map.players[playerName].fetchToScoreRatio = getFetchToCaptureRatio(map.players[playerName]);
         }
     };
 
@@ -57,14 +60,23 @@ angular.module('quakeStatsApp').service('FlagsService', ['Constants', function(C
         if (playerName) {
             if (record.indexOf('RED') !== -1) {
                 map.score[Constants.BLUE] += 1;
-                me.stats.capturedFlags[Constants.BLUE] += 1;
+                currentStats.capturedFlags[Constants.BLUE] += 1;
             } else if (record.indexOf('BLUE') !== -1) {
                 map.score[Constants.RED] += 1;
-                me.stats.capturedFlags[Constants.RED] += 1;
+                currentStats.capturedFlags[Constants.RED] += 1;
             }
             map.players[playerName].scores += 1;
+            map.players[playerName].fetchToScoreRatio = getFetchToCaptureRatio(map.players[playerName]);
         }
     };
+
+    function getFetchToCaptureRatio(player) {
+        var result = 0;
+        if (player.scores !== 0) {
+            result = player.scores / player.fetches ;
+        }
+        return result;
+    }
 
     this.setReturnedFlag = function(record, map) {
         var playerName = me.getPlayerName(record);
@@ -97,20 +109,22 @@ angular.module('quakeStatsApp').service('FlagsService', ['Constants', function(C
         return null;
     };
 
-    this.getTopPlayer = function(prop, map) {
-        var topPlayer = null,
+    this.getTopPlayers = function(prop, map) {
+        var topPlayers = [],
             player = null;
         for (var playerName in map.players) {
             player = map.players[playerName];
-            if (topPlayer) {
-                if (player[prop] > topPlayer[prop]) {
-                    topPlayer = player;
+            if (topPlayers.length > 0) {
+                if (player[prop] > topPlayers[0][prop]) {
+                    topPlayers = [player];
+                } else if (player[prop] === topPlayers[0][prop]) {
+                    topPlayers.push(player);
                 }
             } else {
-                topPlayer = player;
+                topPlayers = [player];
             }
         }
-        return topPlayer;
+        return topPlayers;
     };
 
     this.getWins = function(maps) {
@@ -130,50 +144,93 @@ angular.module('quakeStatsApp').service('FlagsService', ['Constants', function(C
         return wins;
     };
 
-    this.getOverallTopPlayer = function(prop, maps) {
+    this.getPlayerOverallTotal = function(playerName, prop) {
+        var map,
+            result = 0;
+        for (var mapIndex in currentStats.maps) {
+            map = currentStats.maps[mapIndex];
+            if (map.players[playerName]) {
+                result += map.players[playerName][prop];
+            }
+        }
+        return result;
+    };
+
+    this.getOverallTopPlayers = function(prop, maps) {
         var map,
             players = {},
-            topPlayer;
+            topPlayers = [],
+            playerName;
         for (var mapIndex in maps) {
             map = maps[mapIndex];
-            for (var playerName in map.players) {
+            for (playerName in map.players) {
                 if (players[playerName] === undefined) {
                     players[playerName] = 0;
                 }
                 players[playerName] += map.players[playerName][prop];
-                
-                if (topPlayer) {
-                    if (players[playerName] > topPlayer.value) {
-                        topPlayer = {name:playerName, value:players[playerName]};
-                    }
-                } else {
-                    topPlayer = {name:playerName, value:players[playerName]};
-                }
             }
         }
-        return topPlayer;
+
+        for (playerName in players) {
+            if (topPlayers.length > 0) {
+                if (players[playerName] > topPlayers[0].value) {
+                    topPlayers = [{name:playerName, value:players[playerName]}];
+                } else if (players[playerName] === topPlayers[0].value) {
+                    topPlayers.push({name:playerName, value:players[playerName]});
+                }
+            } else {
+                topPlayers = [{name:playerName, value:players[playerName]}];
+            }
+        }
+        return topPlayers;
     };
 
-    this.getFlagsStats = function(log) {
-        if (me.stats) {
-            return me.stats;
+    this.getPlayerCaptureRatio = function(player) {
+        var map,
+            participatingmMapCount = 0,
+            mapPlayer,
+            totalRatio = 0,
+            result = 0;
+        for (var mapIndex in currentStats.maps) {
+            map = currentStats.maps[mapIndex];
+            mapPlayer = map.players[player.name];
+            if (mapPlayer) {
+                participatingmMapCount++;
+                if (mapPlayer.fetches !== 0 && mapPlayer.fetches !== 0) {
+                    totalRatio += mapPlayer.scores / mapPlayer.fetches;
+                }
+                
+            }
+        }
+        if (totalRatio !== 0) {
+            result = totalRatio / participatingmMapCount;
+        }
+        return result;
+    };
+
+    this.getFlagsStats = function(log, gameId) {
+        var statsFromCache = statsCache.get(gameId);
+        if (statsFromCache) {
+            currentStats = statsFromCache;
+            return statsFromCache;
         }
         var i,
             record,
             map,
-            playerName;
-        me.stats = {};
-        me.stats.capturedFlags = {
+            playerName,
+            mapCount = 0;
+        currentStats = {};
+        currentStats.capturedFlags = {
             '1':0,
             '2':0
         };
-        me.stats.maps = {};
+        currentStats.maps = {};
 
         for (i = 0; i < log.length; i++) {
             record = log[i];
             if (record.indexOf('InitGame:') !== -1) {
-                map = me.initMap(record, i);
-                me.stats.maps[i] = map;
+                map = me.initMap(record, i, mapCount++);
+                currentStats.maps[i] = map;
             }
 
             // Flag Records
@@ -190,7 +247,8 @@ angular.module('quakeStatsApp').service('FlagsService', ['Constants', function(C
                             fetches:0,
                             carrierFrags:0,
                             returns:0,
-                            rebounds:0
+                            rebounds:0,
+                            fetchToScoreRatio:0
                         };
                     }
                     //
@@ -220,18 +278,26 @@ angular.module('quakeStatsApp').service('FlagsService', ['Constants', function(C
 
             // Map end
             if (map && record.indexOf('ShutdownGame:') !== -1) {
-                map.topScorer = me.getTopPlayer('scores', map);
-                map.topReturner = me.getTopPlayer('returns', map);
-                map.topCarrierFragger = me.getTopPlayer('carrierFrags', map);
-                map.topFetcher = me.getTopPlayer('fetches', map);
+                map.topScorers = me.getTopPlayers('scores', map);
+                map.topReturners = me.getTopPlayers('returns', map);
+                map.topCarrierFraggers = me.getTopPlayers('carrierFrags', map);
+                map.topFetchers = me.getTopPlayers('fetches', map);
             }
         }
 
-        me.stats.wins = me.getWins(me.stats.maps);
-        me.stats.topOverallScorer = me.getOverallTopPlayer('scores', me.stats.maps);
-        me.stats.topOverallFetcher = me.getOverallTopPlayer('fetches', me.stats.maps);
-        me.stats.topOverallRetuner = me.getOverallTopPlayer('returns', me.stats.maps);
-        me.stats.topOverallCarrierFragger = me.getOverallTopPlayer('carrierFrags', me.stats.maps);
-        return me.stats;
+        currentStats.wins = me.getWins(currentStats.maps);
+        currentStats.topOverallScorers = me.getOverallTopPlayers('scores', currentStats.maps);
+        currentStats.topOverallFetchers = me.getOverallTopPlayers('fetches', currentStats.maps);
+        currentStats.topOverallRetuners = me.getOverallTopPlayers('returns', currentStats.maps);
+        currentStats.topOverallCarrierFraggers = me.getOverallTopPlayers('carrierFrags', currentStats.maps);
+        // Calculate the over all fetchToCaptureRatio for each player
+        var topOverallFetchToCaptureRatioPlayers = me.getOverallTopPlayers('fetchToScoreRatio', currentStats.maps);
+        for (var index in topOverallFetchToCaptureRatioPlayers) {
+            topOverallFetchToCaptureRatioPlayers[index].value = me.getPlayerCaptureRatio(topOverallFetchToCaptureRatioPlayers[index]);
+        }
+        currentStats.topOverallFetchToCaptureRatioPlayers = topOverallFetchToCaptureRatioPlayers;
+
+        statsCache.put(gameId, currentStats);
+        return currentStats;
     };
 }]);

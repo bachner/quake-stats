@@ -1,9 +1,13 @@
 node_modules
 dist
+selenium
+coverage
 .tmp
 .sass-cache
+npm-debug.log
 games.log
 qconsole.log
+data
 app/bower_components
 .idea/
 *.iml
